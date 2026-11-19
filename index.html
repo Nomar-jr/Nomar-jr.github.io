@@ -125,6 +125,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); text-wrap: balance; line-heig
 
 /* Diálogo de detalle de proyecto */
 .pdlg { width: min(42rem, calc(100% - 32px)); max-height: min(88vh, 52rem); padding: 0; border: 1px solid rgb(var(--line)); border-radius: 16px; background: rgb(var(--surface)); color: rgb(var(--ink)); box-shadow: 0 40px 80px -30px rgb(0 0 0 / .45); }
+.pcard[hidden] { display: none; }
 .pdlg::backdrop { background: rgb(var(--ink) / .45); backdrop-filter: blur(3px); }
 
 .rail { display: none; }
