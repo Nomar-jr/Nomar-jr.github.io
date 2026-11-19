@@ -1,0 +1,683 @@
+<title>Nomar Arias · Full-Stack .NET</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+// Tailwind lee los colores de los tokens (canales RGB) para que los modificadores de opacidad (bg-net/10) funcionen en ambos temas
+const tok = n => `rgb(var(--${n}) / <alpha-value>)`;
+tailwind.config = { theme: { extend: {
+  colors: { bg: tok("bg"), surface: tok("surface"), ink: tok("ink"), muted: tok("muted"), line: tok("line"), net: tok("net"), vue: tok("vue"), node: tok("node"), onaccent: tok("on-accent") },
+  fontFamily: { display: "var(--font-display)", sans: "var(--font-body)", mono: "var(--font-mono)" },
+} } };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+<script>
+// La entrada animada solo se prepara si anime.js cargó y el usuario no pidió menos movimiento; si algo falla, todo se ve igual a los 3 s
+const MOTION = !!window.anime && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (MOTION) { document.documentElement.classList.add("anim"); setTimeout(() => document.documentElement.classList.remove("anim"), 3000); }
+</script>
+<style>
+/* Una columna: barra fija → hero (texto + ventana de código C#) → roadmaps en un panel tipo plano → proyectos en tarjetas compactas con detalle en diálogo.
+   Acentos: violeta .NET + verde Vue + verde azulado para los nodos. Tokens en canales RGB para Tailwind. */
+:root {
+  --bg: 247 246 251;
+  --surface: 255 255 255;
+  --ink: 27 24 48;
+  --muted: 93 88 120;
+  --line: 226 223 238;
+  --net: 91 53 213;
+  --vue: 31 138 94;
+  --node: 15 127 120;
+  --node-ink: 255 255 255;
+  --on-accent: 255 255 255;
+  --code-bg: 24 21 44;
+  --code-fg: 222 218 240;
+  --code-dim: 128 121 164;
+  --code-kw: 176 152 255;
+  --code-str: 104 214 166;
+  --code-type: 255 196 120;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: 18 16 32; --surface: 27 24 48; --ink: 238 235 249; --muted: 168 162 196; --line: 46 42 72;
+    --net: 168 139 255; --vue: 79 209 154; --node: 57 194 178; --node-ink: 11 31 29; --on-accent: 18 16 32;
+    --code-bg: 12 10 24;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: 18 16 32; --surface: 27 24 48; --ink: 238 235 249; --muted: 168 162 196; --line: 46 42 72;
+  --net: 168 139 255; --vue: 79 209 154; --node: 57 194 178; --node-ink: 11 31 29; --on-accent: 18 16 32;
+  --code-bg: 12 10 24;
+  color-scheme: dark;
+}
+html { scroll-behavior: smooth; }
+body { background: rgb(var(--bg)); color: rgb(var(--ink)); font-family: var(--font-body); font-size: 1.0625rem; line-height: 1.6; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: rgb(var(--bg)); }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3, h4 { font-family: var(--font-display); text-wrap: balance; line-height: 1.1; }
+:focus-visible { outline: 3px solid rgb(var(--vue)); outline-offset: 2px; }
+.anim .hero-in, .anim .cl { opacity: 0; }
+
+/* Hero: retícula de puntos de fondo que se desvanece hacia abajo */
+.hero { position: relative; isolation: isolate; }
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgb(var(--line)) 1px, transparent 1.2px); background-size: 22px 22px; mask-image: linear-gradient(to bottom, #000 30%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent); }
+.code-win { background: rgb(var(--code-bg)); color: rgb(var(--code-fg)); box-shadow: 0 30px 60px -30px rgb(var(--net) / .55); }
+.code-win .k { color: rgb(var(--code-kw)); }
+.code-win .s { color: rgb(var(--code-str)); }
+.code-win .t { color: rgb(var(--code-type)); }
+.code-win .c { color: rgb(var(--code-dim)); }
+.cl { display: block; min-height: 1.5em; }
+
+/* Roadmap: nodos centrales en zigzag, ramas alternando lado; las líneas se dibujan en un SVG superpuesto */
+.rm-panel { background-color: rgb(var(--surface)); background-image: radial-gradient(rgb(var(--line)) 1px, transparent 1.2px); background-size: 22px 22px; }
+.rm { position: relative; display: grid; gap: 1.75rem; padding-block: .5rem 1rem; }
+.rm .wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; display: block; }
+.wires path { fill: none; }
+.wires .sp { stroke: rgb(var(--node)); stroke-width: 2; }
+.wires .br { stroke: rgb(var(--net)); stroke-width: 1.4; stroke-dasharray: 4 4; opacity: .6; }
+.row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 13rem minmax(0, 1fr); column-gap: 4rem; align-items: start; }
+.node { grid-column: 2; grid-row: 1; justify-self: center; position: relative; z-index: 1; display: grid; gap: .1rem; justify-items: center; min-width: 11rem; max-width: 100%; font: 700 1.05rem/1.2 var(--font-display); color: rgb(var(--node-ink)); background: rgb(var(--node)); border-radius: 10px; padding: .8rem 1.25rem; cursor: pointer; text-align: center; box-shadow: 0 10px 24px -14px rgb(var(--node) / .9), inset 0 1px 0 rgb(255 255 255 / .18); transition: box-shadow .2s, filter .2s; }
+.node span { font: 600 .68rem var(--font-mono); letter-spacing: .08em; opacity: .8; }
+.node:hover { filter: brightness(1.08); box-shadow: 0 14px 30px -12px rgb(var(--node)), inset 0 1px 0 rgb(255 255 255 / .18); }
+.node[aria-expanded="true"] { box-shadow: 0 0 0 4px rgb(var(--node) / .25), 0 14px 30px -12px rgb(var(--node)); }
+.row.r .node { translate: -2.25rem 0; }
+.row.l .node { translate: 2.25rem 0; }
+.side { grid-row: 1; position: relative; z-index: 1; display: flex; flex-direction: column; gap: .45rem; min-width: 0; }
+.row.r .side { grid-column: 3; align-items: flex-start; }
+.row.l .side { grid-column: 1; align-items: flex-end; }
+.branch { max-width: 100%; display: inline-flex; align-items: baseline; gap: .5rem; font: 600 .9rem var(--font-body); color: rgb(var(--ink)); background: rgb(var(--surface)); border: 1px solid rgb(var(--net) / .22); border-radius: 8px; padding: .35rem .75rem; cursor: pointer; text-align: left; transition: border-color .2s, background-color .2s; }
+.branch:hover { border-color: rgb(var(--net)); background: rgb(var(--net) / .06); }
+.branch b { font: 600 .68rem var(--font-mono); color: rgb(var(--net)); }
+.branch::after { content: "▸"; font-size: .7rem; color: rgb(var(--net)); transition: rotate .2s; }
+.branch[aria-expanded="true"] { border-color: rgb(var(--net)); background: rgb(var(--net) / .1); }
+.branch[aria-expanded="true"]::after { rotate: 90deg; }
+
+/* Nivel 3: temas de la rama, desplegados bajo ella; cada tema despliega sus proyectos */
+.bg { display: flex; flex-direction: column; gap: .4rem; max-width: 100%; }
+.row.r .bg { align-items: flex-start; }
+.row.l .bg { align-items: flex-end; }
+.topics { margin: 0 0 .35rem; padding: .1rem 0; display: grid; gap: .15rem; max-width: 22rem; }
+.row.r .topics { margin-left: .9rem; padding-left: .9rem; border-left: 2px dashed rgb(var(--line)); }
+.row.l .topics { margin-right: .9rem; padding-right: .9rem; border-right: 2px dashed rgb(var(--line)); justify-items: end; text-align: right; }
+.topics li { display: grid; gap: .3rem; min-width: 0; }
+.row.l .topics li { justify-items: end; }
+.topic { display: inline-flex; align-items: baseline; gap: .4rem; font: .88rem var(--font-body); color: rgb(var(--ink)); border-radius: 4px; padding: .2rem .35rem; cursor: pointer; text-align: inherit; }
+.topic::before { content: ""; flex: none; width: .4rem; height: .4rem; border-radius: 50%; border: 1.5px solid rgb(var(--vue)); translate: 0 -.1rem; }
+.topic:hover { background: rgb(var(--vue) / .12); }
+.topic[aria-expanded="true"] { font-weight: 600; }
+.topic[aria-expanded="true"]::before { background: rgb(var(--vue)); }
+.topics .tags { padding: 0 .35rem .3rem 1.15rem; }
+.row.l .topics .tags { justify-content: flex-end; }
+.tags { display: flex; flex-wrap: wrap; gap: .3rem; }
+.tags button { font: 600 .7rem var(--font-mono); color: rgb(var(--vue)); background: rgb(var(--vue) / .13); border-radius: 4px; padding: .12rem .45rem; cursor: pointer; }
+.tags button:hover { background: rgb(var(--vue)); color: rgb(var(--on-accent)); }
+.tags span { font: 600 .7rem var(--font-mono); color: rgb(var(--muted)); border: 1px dashed rgb(var(--line)); border-radius: 4px; padding: .1rem .45rem; }
+
+/* Diálogo de detalle de proyecto */
+.pdlg { width: min(42rem, calc(100% - 32px)); max-height: min(88vh, 52rem); padding: 0; border: 1px solid rgb(var(--line)); border-radius: 16px; background: rgb(var(--surface)); color: rgb(var(--ink)); box-shadow: 0 40px 80px -30px rgb(0 0 0 / .45); }
+.pdlg::backdrop { background: rgb(var(--ink) / .45); backdrop-filter: blur(3px); }
+
+/* En pantallas estrechas el zigzag no cabe: lista vertical con las ramas debajo de cada nodo */
+@media (max-width: 760px) {
+  .rm { gap: 1.25rem; }
+  .rm .wires { display: none; }
+  .row { grid-template-columns: minmax(0, 1fr); row-gap: .6rem; }
+  .row .node, .row.r .node, .row.l .node { grid-column: 1; justify-self: start; translate: none; }
+  .row .side, .row.r .side, .row.l .side { grid-column: 1; grid-row: 2; align-items: flex-start; margin-left: 1rem; padding-left: 1rem; border-left: 2px dashed rgb(var(--line)); }
+  .row.l .bg { align-items: flex-start; }
+  .row.l .topics { margin: 0 0 .35rem .9rem; padding: .1rem 0 .1rem .9rem; border-right: 0; border-left: 2px dashed rgb(var(--line)); justify-items: start; text-align: left; }
+  .row.l .topics li { justify-items: start; }
+  .row.l .topics .tags { justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .node, .branch, .branch::after, .pcard { transition: none !important; }
+}
+</style>
+
+<nav class="sticky z-20 border-b border-line/70 bg-bg/80 backdrop-blur-md" style="top: env(safe-area-inset-top, 0px)">
+  <div class="gutter mx-auto flex max-w-6xl items-center justify-between gap-4 py-3">
+    <a href="#top" class="font-mono text-sm font-semibold text-net">NomarArias<span class="text-muted">.Perfil</span></a>
+    <div class="flex items-center gap-1 text-[.95rem] font-semibold">
+      <a href="#habilidades" class="rounded-md px-3 py-1.5 text-muted transition-colors hover:bg-net/10 hover:text-ink">Habilidades</a>
+      <a href="#proyectos" class="rounded-md px-3 py-1.5 text-muted transition-colors hover:bg-net/10 hover:text-ink">Proyectos</a>
+    </div>
+  </div>
+</nav>
+
+<header id="top" class="hero border-b border-line/70">
+  <div class="gutter mx-auto grid max-w-6xl items-center gap-12 pb-16 pt-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,.9fr)] lg:pb-20 lg:pt-20">
+    <div class="grid min-w-0 gap-6">
+      <span class="hero-in font-mono text-sm text-net">namespace NomarArias.Perfil;</span>
+      <h1 class="hero-in text-[clamp(2.5rem,7vw,4.6rem)] font-extrabold tracking-tight [overflow-wrap:anywhere]">Nomar Arias Álvarez</h1>
+      <p class="hero-in font-display text-[clamp(1.2rem,2.4vw,1.55rem)] font-semibold text-muted">Desarrollador Full-Stack .NET <span class="text-vue">+</span> Vue&nbsp;3</p>
+      <div class="hero-in flex flex-wrap items-center gap-x-5 gap-y-3 text-muted">
+        <span class="inline-flex items-center gap-1.5">
+          <svg class="h-4 w-4 text-net" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+          La Habana, Cuba
+        </span>
+        <span class="inline-flex items-center gap-1 rounded-lg border border-line bg-surface py-1 pl-3 pr-1">
+          <span class="font-mono text-sm text-ink [overflow-wrap:anywhere] select-all" id="mail">nomarjrtech@gmail.com</span>
+          <button id="copy" type="button" class="rounded-md bg-net px-3 py-1 text-sm font-semibold text-onaccent transition hover:brightness-110">Copiar</button>
+        </span>
+        <span class="min-h-[1.4em] text-sm text-vue" id="copy-status" aria-live="polite"></span>
+      </div>
+      <div class="hero-in grid grid-cols-3 gap-4 border-t border-line pt-6" id="stats"></div>
+    </div>
+
+    <div class="hero-in code-win min-w-0 overflow-hidden rounded-2xl" aria-label="Resumen del perfil escrito como código C#">
+      <div class="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+        <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
+        <span class="ml-2 font-mono text-xs text-white/50">Perfil.cs</span>
+      </div>
+      <pre class="overflow-x-auto p-5 font-mono text-[12.5px] leading-6"><code><span class="cl"><span class="c">// Lo que uso a diario, sacado de mis proyectos</span></span><span class="cl"><span class="k">var</span> perfil = <span class="k">new</span> <span class="t">Desarrollador</span>(<span class="s">"Nomar Arias"</span>)</span><span class="cl">{</span><span class="cl">    Backend  = [<span class="s">".NET 10"</span>, <span class="s">"ASP.NET Core"</span>, <span class="s">"EF Core"</span>],</span><span class="cl">    Frontend = [<span class="s">"Vue 3"</span>, <span class="s">"Quasar 2"</span>, <span class="s">"TypeScript"</span>],</span><span class="cl">    Movil    = [<span class="s">".NET MAUI"</span>, <span class="s">"Syncfusion"</span>],</span><span class="cl">    IA       = [<span class="s">"Microsoft.Extensions.AI"</span>, <span class="s">"MCP"</span>],</span><span class="cl">    Infra    = [<span class="s">"Docker"</span>, <span class="s">".NET Aspire"</span>, <span class="s">"RabbitMQ"</span>],</span><span class="cl">    Pruebas  = [<span class="s">"xUnit"</span>, <span class="s">"NetArchTest"</span>],</span><span class="cl">};</span><span class="cl"></span><span class="cl"><span class="k">await</span> perfil.<span class="t">ConstruirAsync</span>(cancellationToken);</span></code></pre>
+    </div>
+  </div>
+</header>
+
+<main class="gutter mx-auto grid max-w-6xl gap-24 pb-24 pt-16">
+
+  <section id="habilidades" class="scroll-mt-20" aria-labelledby="h-skills">
+    <div class="mb-8 grid max-w-2xl gap-3">
+      <span class="font-mono text-xs uppercase tracking-[.14em] text-muted">Habilidades</span>
+      <h2 id="h-skills" class="text-[clamp(1.7rem,3.4vw,2.3rem)] font-bold">Mi recorrido en .NET</h2>
+      <p class="text-muted">Toca un nodo o una rama para ver sus temas, y un tema para abrir el proyecto donde lo uso. Lo marcado como «Otros proyectos» viene de trabajos que no están en este portafolio.</p>
+    </div>
+    <div class="mb-5 flex flex-wrap gap-1.5 rounded-xl border border-line bg-surface p-1.5 sm:inline-flex" id="tabs" role="tablist" aria-label="Roadmaps"></div>
+    <div class="rm-panel rounded-2xl border border-line p-4 sm:p-8">
+      <div class="rm" id="rm" role="tabpanel" aria-labelledby="h-skills"></div>
+    </div>
+  </section>
+
+  <section id="proyectos" class="scroll-mt-20" aria-labelledby="h-proj">
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-6">
+      <div class="grid max-w-2xl gap-3">
+        <span class="font-mono text-xs uppercase tracking-[.14em] text-muted">Proyectos</span>
+        <h2 id="h-proj" class="text-[clamp(1.7rem,3.4vw,2.3rem)] font-bold">Qué he construido</h2>
+        <p class="text-muted">Sistemas completos, de la arquitectura al instalador. Abre uno para ver el detalle y toda su pila.</p>
+      </div>
+      <div class="flex flex-wrap gap-1.5" id="filters" role="group" aria-label="Filtrar por plataforma"></div>
+    </div>
+    <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3" id="projects"></div>
+  </section>
+
+</main>
+
+<dialog id="pdlg" class="pdlg" aria-labelledby="pd-title">
+  <div class="grid gap-6 p-6 sm:p-8" id="pd-body"></div>
+</dialog>
+
+<script>
+// Roadmaps: nodo → ramas → temas; cada tema lista los proyectos donde aparece en el código.
+// Lo que no tiene proyecto no se publica: temas, ramas y nodos vacíos se descartan y los nodos se renumeran.
+// OTROS marca experiencia de otros trabajos que no está en estos proyectos: se muestra con una etiqueta sin enlace.
+const OTROS = "otros";
+const NET = "fe wa nt pos gym tur", FRONT = "fe wa nt gym web", ALL = "fe wa nt pos gym web tur";
+const ROADMAPS = [
+  { id: "net", tab: ".NET", title: "Mi recorrido en .NET", nodes: [
+    { name: "C#", branches: [
+      { name: "Fundamentos de C#", items: [["Clases e interfaces", NET], ["Genéricos", NET], ["Records", NET], ["Async / await", NET], ["LINQ", NET], ["Pattern matching", NET], ["Excepciones", NET], ["Delegados y eventos", "fe wa nt pos"], ["Métodos de extensión", "fe wa nt gym"], ["Primary constructors", "fe wa nt gym"]] },
+      { name: ".NET 10", items: [["Todos los proyectos en .NET 10", NET], ["CancellationToken de punta a punta", NET], ["Source generators ([GeneratedRegex], [LoggerMessage])", "wa nt"]] },
+      { name: "Temas avanzados", items: [["Ficheros (File I/O)", "fe wa nt pos"], ["Red con HttpClient", "fe wa nt"], ["Concurrencia (Channels, SemaphoreSlim)", "wa nt"], ["Firma digital de XML (PKCS#12, ECDSA)", "fe"], ["Cifrado de secretos con DPAPI", "wa nt"]] },
+      { name: "dotnet CLI", items: [["Compilar, probar y publicar desde la CLI", NET]] },
+      { name: "NuGet", items: [["Gestión de paquetes", NET], ["Central Package Management", "wa nt pos tur"]] } ] },
+    { name: "Habilidades generales", branches: [
+      { name: "Git", items: [["Control de versiones en todos los proyectos", ALL]] },
+      { name: "Patrones de diseño", items: [["Inyección de dependencias", NET], ["Repository", "fe nt gym"], ["Specification", "fe gym"], ["Unit of Work", "nt"], ["Mediator", "fe nt gym tur"], ["Decorator (pipeline behaviors)", "fe nt gym tur"], ["Factory", "wa nt pos tur"], ["Observer (propiedades observables)", "pos"], ["Result pattern", "nt"], ["Options pattern", "fe wa nt tur"], ["Outbox", "tur"]] },
+      { name: "Arquitectura de software", items: [["Clean Architecture", "fe nt pos gym"], ["CQRS", "fe nt gym tur"], ["DDD táctico", "nt gym tur"], ["Vertical slices", "nt tur"], ["MVVM", "pos"], ["Microservicios", "tur"], ["Backend for Frontend (BFF)", "tur"]] } ] },
+    { name: "ASP.NET Core", branches: [
+      { name: "Web y HTTP", items: [["APIs REST sobre HTTP", "fe wa nt gym tur"]] },
+      { name: "APIs", items: [["Minimal APIs", "wa nt gym tur"], ["Controllers", "fe"], ["OpenAPI", "fe wa nt gym tur"], ["Versionado de API (Asp.Versioning)", "tur"]] },
+      { name: "Middlewares", items: [["Middlewares propios", "fe wa nt"], ["Rate limiting", "fe wa nt"], ["CORS", "fe wa nt gym"]] },
+      { name: "Errores y filtros", items: [["ProblemDetails y manejo global de errores", "fe nt tur"], ["Códigos de error para el cliente en excepciones y validaciones", "tur"]] },
+      { name: "Autenticación y autorización", items: [["ASP.NET Core Identity", "fe gym"], ["JSON Web Tokens", "fe gym tur"], ["Refresh token", "fe"], ["Doble factor (2FA)", "fe"], ["Permisos por rol", "fe gym"], ["OpenID Connect con Keycloak", "tur"], ["Sesión por cookies en el BFF", "tur"]] },
+      { name: "Salud del servicio", items: [["Health checks y panel HealthChecks UI", "tur"]] },
+      { name: "Razor Pages", items: [["Aplicaciones web renderizadas en servidor con Razor Pages", OTROS]] } ] },
+    { name: "Cliente .NET", branches: [
+      { name: ".NET MAUI", items: [["Android (net10.0-android)", "pos"], ["MVVM con CommunityToolkit.Mvvm", "pos"], ["Syncfusion: gráficos, listas, entradas y botones", "pos"], ["SQLite local con EF Core", "pos"], ["Funcionamiento sin conexión", "pos"], ["Reportes PDF y Excel con Syncfusion", "pos"], ["Compartir archivos desde la app", "pos"], ["Acceso por PIN", "pos"]] },
+      { name: "Blazor", items: [["Blazor WebAssembly", OTROS], ["Blazor Server", OTROS]] },
+      { name: "WPF", items: [["Aplicaciones de escritorio Windows con WPF", OTROS]] } ] },
+    { name: "Bases de datos", branches: [
+      { name: "Diseño", items: [["Modelado relacional", NET]] },
+      { name: "SQL", items: [["Consultas SQL escritas a mano", "wa nt"]] },
+      { name: "Relacionales", items: [["PostgreSQL", "fe tur"], ["Oracle", "tur"], ["SQL Server", OTROS], ["SQLite", "wa nt pos gym"], ["Búsqueda de texto completo (FTS5)", "wa nt"]] } ] },
+    { name: "ORM", branches: [
+      { name: "Entity Framework Core", items: [["Configuración con Fluent API", NET], ["Code first y migraciones", "fe pos tur"], ["Convenciones de nombres", "nt"], ["Specification sobre EF Core", "fe gym"], ["Proveedor intercambiable (PostgreSQL / Oracle)", "tur"]] },
+      { name: "Dapper", items: [["Lecturas con Dapper (lado query de CQRS)", "nt"]] },
+      { name: "LINQ", items: [["LINQ to Entities", NET], ["Filtrado, orden y paginación dinámicos con Sieve", "tur"]] } ] },
+    { name: "Caché", branches: [
+      { name: "Memoria", items: [["IMemoryCache", "fe"]] },
+      { name: "Distribuida", items: [["Redis", "tur"], ["HybridCache (memoria + Redis)", "tur"], ["Invalidación de caché tras escrituras", "tur"]] } ] },
+    { name: "Logging", branches: [
+      { name: "Microsoft.Extensions.Logging", items: [["ILogger<T>", "fe wa nt tur"], ["Logging de alto rendimiento ([LoggerMessage])", "wa nt"]] },
+      { name: "Serilog", items: [["Logs estructurados con Serilog", "wa nt tur"], ["Salida a fichero", "wa"]] } ] },
+    { name: "Observabilidad", branches: [
+      { name: "OpenTelemetry", items: [["Trazas y métricas con OpenTelemetry", "tur"]] },
+      { name: "Monitorización", items: [["Grafana, Prometheus, Loki y Tempo", "tur"]] } ] },
+    { name: "Comunicación", branches: [
+      { name: "Mensajería", items: [["RabbitMQ con MassTransit", "tur"], ["Eventos de integración entre microservicios", "tur"], ["Request/response sobre el bus", "tur"]] },
+      { name: "API Gateway", items: [["YARP como gateway y BFF", "tur"]] },
+      { name: "Tiempo real", items: [["SignalR", "wa nt"]] },
+      { name: "Síncrona", items: [["HttpClient / IHttpClientFactory", "fe wa nt tur"], ["Resiliencia con Microsoft.Extensions.Http.Resilience", "tur"]] },
+      { name: "Webhooks", items: [["Callbacks idempotentes de pasarelas de pago", "tur"]] },
+      { name: "Entre procesos", items: [["Proceso Node.js gobernado desde .NET (NDJSON)", "wa"]] },
+      { name: "Correo", items: [["SMTP con MailKit", "fe"]] } ] },
+    { name: "Tareas en segundo plano", branches: [
+      { name: "Nativas", items: [["BackgroundService / IHostedService", "wa nt tur"], ["API como servicio de Windows", "wa nt gym"]] },
+      { name: "Hangfire", items: [["Tareas recurrentes con Hangfire y PostgreSQL", "fe tur"]] } ] },
+    { name: "Contenedores y orquestación", branches: [
+      { name: "Docker", items: [["Dockerfile por microservicio", "tur"], ["Docker Compose para infraestructura y entornos", "tur"]] },
+      { name: ".NET Aspire", items: [["Orquestación local de servicios e infraestructura", "tur"]] } ] },
+    { name: "Testing", branches: [
+      { name: "Unitarias", items: [["xUnit", "fe wa nt pos"], ["NSubstitute", "fe nt"], ["Shouldly", "nt"], ["Cobertura con coverlet", "fe wa pos"]] },
+      { name: "Integración", items: [["WebApplicationFactory", "fe wa nt"]] },
+      { name: "Arquitectura", items: [["Reglas de capas con NetArchTest", "nt"]] },
+      { name: "Rendimiento", items: [["Pruebas de carga con k6", "tur"]] } ] },
+    { name: "Librerías .NET", branches: [
+      { name: "Mensajería y validación", items: [["MediatR", "fe gym"], ["Mediator (source generator)", "nt tur"], ["FluentValidation", "fe nt gym tur"], ["MassTransit", "tur"]] },
+      { name: "Documentación de API", items: [["Swashbuckle", "fe"], ["Scalar", "gym tur"]] },
+      { name: "Datos y documentos", items: [["Ardalis.Specification", "fe gym"], ["ClosedXML", "wa nt"], ["Syncfusion PDF y DocIO", "fe"], ["Markdig", "nt"], ["LibGit2Sharp", "nt"]] } ] },
+  ] },
+  { id: "front", tab: "Frontend", title: "Mi recorrido en frontend", nodes: [
+    { name: "Fundamentos web", branches: [
+      { name: "HTML y CSS", items: [["Maquetación responsive", FRONT]] },
+      { name: "JavaScript", items: [["JavaScript moderno con módulos ES", FRONT]] } ] },
+    { name: "TypeScript", branches: [
+      { name: "Tipado", items: [["TypeScript estricto", "fe wa nt web"], ["Comprobación de tipos con vue-tsc", "fe wa nt"]] } ] },
+    { name: "Vue 3", branches: [
+      { name: "Núcleo", items: [["Composition API", "fe wa nt gym"], ["Componentes genéricos de tabla y formulario", "gym"]] },
+      { name: "Ecosistema", items: [["Vue Router", "fe wa nt gym"], ["Pinia", "fe wa nt"], ["vue-i18n", "fe"], ["Arrastrar y soltar (vuedraggable)", "fe"]] } ] },
+    { name: "Quasar 2", branches: [
+      { name: "Framework", items: [["Componentes y layouts de Quasar", "fe wa nt gym"], ["Calendario (QCalendar)", "gym"]] } ] },
+    { name: "React y Next.js", branches: [
+      { name: "React 19", items: [["Componentes de servidor", "web"]] },
+      { name: "Next.js 16", items: [["App Router", "web"], ["Rutas por idioma", "web"], ["SEO técnico (sitemap, robots, JSON-LD)", "web"]] } ] },
+    { name: "Estilos", branches: [
+      { name: "CSS", items: [["Tailwind CSS 4", "web"], ["Animaciones con anime.js", "fe"]] } ] },
+    { name: "Visualización", branches: [
+      { name: "Gráficos", items: [["ECharts", "nt"], ["Chart.js", "fe"]] } ] },
+    { name: "Comunicación con el backend", branches: [
+      { name: "HTTP", items: [["Axios", "fe"], ["Cliente tipado generado desde OpenAPI", "wa nt"]] },
+      { name: "Tiempo real", items: [["Cliente de SignalR", "wa nt"]] } ] },
+    { name: "Seguridad en el cliente", branches: [
+      { name: "Navegador", items: [["Sanear HTML con DOMPurify", "nt"], ["Certificados en el navegador (node-forge)", "fe"]] } ] },
+    { name: "Escritorio", branches: [
+      { name: "Electron", items: [["App de escritorio con Quasar + Electron", "wa nt gym"], ["Instalador con electron-builder", "wa nt gym"]] } ] },
+    { name: "Node.js", branches: [
+      { name: "Procesos auxiliares", items: [["Sidecar en TypeScript", "wa"], ["Integración con WhatsApp (Baileys)", "wa"], ["Logs con pino", "wa"], ["Empaquetado con esbuild", "wa"]] } ] },
+    { name: "Build y calidad", branches: [
+      { name: "Build", items: [["Vite (Quasar app-vite)", "fe wa nt gym"], ["pnpm", FRONT]] },
+      { name: "Calidad", items: [["ESLint", FRONT], ["Prettier", "fe wa nt gym"]] } ] },
+  ] },
+  { id: "ai", tab: "IA", title: "Mi recorrido en IA", nodes: [
+    { name: "Modelos de lenguaje", branches: [
+      { name: "Proveedores", items: [["API de Claude (SDK de Anthropic)", "wa nt"], ["APIs compatibles con OpenAI", "wa nt"]] },
+      { name: "Capacidades", items: [["Modelos con visión (lectura de imágenes)", "wa"], ["Respuestas en streaming", "wa nt"]] } ] },
+    { name: "Microsoft.Extensions.AI", branches: [
+      { name: "Abstracciones", items: [["IChatClient independiente del proveedor", "wa nt"]] } ] },
+    { name: "Prompt engineering", branches: [
+      { name: "Prompts", items: [["Prompts de sistema", "wa nt"], ["Salida estructurada con JSON Schema", "wa nt"]] } ] },
+    { name: "Agentes y herramientas", branches: [
+      { name: "Tool calling", items: [["Funciones expuestas al modelo", "nt"]] },
+      { name: "MCP", items: [["Servidor MCP con más de 50 herramientas", "nt"]] } ] },
+    { name: "IA en el producto", branches: [
+      { name: "Casos de uso", items: [["Extraer productos y precios de mensajes", "wa"], ["Preguntas en lenguaje natural convertidas en filtros validados", "wa"], ["Asistente que consulta y opera proyectos", "nt"]] } ] },
+    { name: "Evaluación", branches: [
+      { name: "Evals", items: [["Comparar modelos y prompts con datos reales", "wa"]] },
+      { name: "Costes", items: [["Control de tokens y uso", "wa nt"]] } ] },
+    { name: "Producción", branches: [
+      { name: "Robustez", items: [["Reintentos ante fallos del proveedor", "wa nt"], ["Límite de peticiones", "wa nt"]] } ] },
+  ] },
+  { id: "tools", tab: "Herramientas", title: "Mis herramientas", nodes: [
+    { name: "Control de versiones", branches: [
+      { name: "Git", items: [["Git en todos los proyectos", ALL]] },
+      { name: "GitLab", items: [["Repositorios en GitLab", "tur"]] },
+      { name: "Convenciones", items: [["Conventional Commits con commitlint y Husky", "tur"]] },
+      { name: "Azure DevOps Server (TFS)", items: [["Repositorios y work items en TFS", "fe"]] } ] },
+    { name: "Gestión de proyectos", branches: [
+      { name: "JetBrains YouTrack", items: [["Incidencias, tareas y tableros ágiles", OTROS]] } ] },
+    { name: "IDE", branches: [
+      { name: "JetBrains", items: [["JetBrains Rider (.NET)", OTROS], ["JetBrains WebStorm (frontend)", OTROS]] } ] },
+    { name: "Empaquetado y despliegue", branches: [
+      { name: "Windows", items: [["Servicio de Windows", "wa nt gym"], ["Instalador NSIS con electron-builder", "wa nt gym"]] },
+      { name: "Android", items: [["Generación de APK", "pos"]] },
+      { name: "Contenedores y CI/CD", items: [["Imágenes Docker", "tur"], ["Pipelines de build, seguridad y despliegue en GitLab CI", "tur"]] } ] },
+    { name: "Calidad de código", branches: [
+      { name: ".NET", items: [["Analizadores Roslyn (StyleCop, Roslynator, Meziantou)", "tur"], ["Formato con CSharpier", "tur"]] } ] },
+    { name: "Documentación de API", branches: [
+      { name: "OpenAPI", items: [["Swagger", "fe"], ["Scalar", "gym"], ["Contrato OpenAPI → tipos TypeScript", "wa nt"]] } ] },
+    { name: "Desarrollo asistido por IA", branches: [
+      { name: "Claude Code", items: [["Instrucciones por proyecto (CLAUDE.md)", "fe wa nt gym web tur"], ["Subagentes especializados", "gym tur"], ["Servidores MCP conectados (bases de datos, navegador, gestión de tareas)", OTROS], ["Skills propias para flujos repetibles", OTROS], ["Hooks y permisos en settings.json", OTROS], ["Comandos slash personalizados", OTROS], ["Modo plan antes de cambios grandes", OTROS], ["Memoria persistente entre sesiones", OTROS]] },
+      { name: "Gemini CLI", items: [["Agente de Google en la terminal", OTROS]] },
+      { name: "Google Antigravity", items: [["IDE agéntico de Google", OTROS]] } ] },
+  ] },
+];
+
+// Etiquetas de la pila de cada proyecto
+const LABEL = {
+  csharp: "C# · .NET 10", aspnet: "ASP.NET Core Web API", minimal: "Minimal API", worker: "Servicio de Windows", signalr: "SignalR",
+  efcore: "Entity Framework Core", dapper: "Dapper", mediatr: "MediatR / Mediator", fluentval: "FluentValidation", openapi: "OpenAPI",
+  serilog: "Serilog", hangfire: "Hangfire", mailkit: "MailKit", clean: "Clean Architecture", cqrs: "CQRS", ddd: "DDD táctico",
+  vslice: "Vertical slices", spec: "Specification", result: "Result pattern", mvvm: "MVVM", contract: "API contract-first",
+  offline: "Offline-first", vue: "Vue 3", quasar: "Quasar 2", ts: "TypeScript", pinia: "Pinia", router: "Vue Router",
+  i18n: "i18n", charts: "Gráficos", react: "React 19", next: "Next.js 16", tailwind: "Tailwind CSS 4", seo: "SEO técnico",
+  electron: "Electron", maui: ".NET MAUI", syncfusion: "Syncfusion", toolkit: "CommunityToolkit.Mvvm", node: "Node.js",
+  postgres: "PostgreSQL", sqlite: "SQLite", migr: "Migraciones EF Core", meai: "Microsoft.Extensions.AI", llm: "Claude / OpenAI",
+  struct: "JSON Schema", vision: "Visión", mcp: "MCP", evals: "Evals", jwt: "JWT", identity: "Identity", twofa: "2FA",
+  perms: "Permisos por rol", sign: "Firma XML", dpapi: "DPAPI", pdf: "PDF", word: "Word (DocIO)", excel: "Excel",
+  xunit: "xUnit", nsub: "NSubstitute", integ: "Integración", archtest: "NetArchTest", lint: "ESLint · Prettier",
+  micro: "Microservicios", rabbit: "RabbitMQ · MassTransit", redis: "Redis · HybridCache", aspire: ".NET Aspire", docker: "Docker",
+  yarp: "YARP · BFF", keycloak: "Keycloak · OIDC", otel: "OpenTelemetry", oracle: "Oracle", outbox: "Outbox", versioning: "Versionado de API",
+  cicd: "GitLab CI/CD", k6: "k6", analyzers: "Analizadores Roslyn",
+};
+
+// platforms: para el filtro de la sección; key: las 4 tecnologías que se ven en la tarjeta (el resto va en el detalle)
+const PROJECTS = [
+  { id: "fe", short: "Facturación", title: "Plataforma de facturación electrónica", kind: "Web", platforms: ["web"], tests: 517,
+    key: ["aspnet", "vue", "postgres", "sign"],
+    summary: "Recibe las facturas en XML de dos sistemas de origen (almacén y gestión hotelera), las lleva por un circuito de firmas en orden obligatorio y devuelve el estado a cada sistema.",
+    points: ["Firma digital de XML con certificados PKCS#12 y ECDSA", "Catorce módulos: facturación, firmas, mapeos, usuarios, auditoría, reportes…", "Avisos dentro de la aplicación y por correo; tareas en segundo plano con Hangfire", "Autenticación con JWT, refresh token, doble factor y permisos por rol"],
+    skills: ["csharp", "aspnet", "efcore", "mediatr", "fluentval", "openapi", "hangfire", "mailkit", "clean", "cqrs", "spec", "vue", "quasar", "ts", "pinia", "router", "i18n", "charts", "postgres", "migr", "jwt", "identity", "twofa", "perms", "sign", "pdf", "word", "xunit", "nsub", "integ", "lint"] },
+  { id: "wa", short: "Precios WhatsApp", title: "Analizador de precios en WhatsApp con IA", kind: "Escritorio Windows", platforms: ["desktop"], tests: 214,
+    key: ["worker", "meai", "node", "sqlite"],
+    summary: "Lee, en modo solo lectura, los grupos y canales de WhatsApp elegidos y extrae con IA los productos, precios y ofertas, incluso de las fotos. Se consulta con filtros o con preguntas en lenguaje natural.",
+    points: ["Servicio de Windows en .NET que gobierna un proceso Node.js y se comunica con él por NDJSON", "La IA devuelve filtros validados con JSON Schema y el servicio arma la consulta parametrizada: nunca escribe SQL", "Búsqueda de texto completo con SQLite FTS5 y actualizaciones en tiempo real con SignalR", "Herramienta propia para comparar modelos y prompts antes de elegir proveedor"],
+    skills: ["csharp", "minimal", "worker", "signalr", "efcore", "openapi", "serilog", "contract", "vue", "quasar", "ts", "pinia", "router", "electron", "node", "sqlite", "meai", "llm", "struct", "vision", "evals", "dpapi", "excel", "xunit", "integ", "lint"] },
+  { id: "nt", short: "Gestor de proyectos", title: "Gestor de proyectos y registro de tiempo", kind: "Escritorio Windows", platforms: ["desktop"], tests: 539,
+    key: ["clean", "cqrs", "mcp", "vue"],
+    summary: "Gestor de proyectos al estilo Azure DevOps: work items jerárquicos, registro de tiempo, actividad de los repositorios Git locales y métricas por proyecto.",
+    points: ["Clean Architecture verificada con tests de arquitectura; vertical slices y DDD táctico", "CQRS: EF Core para escribir y Dapper para leer", "Servidor MCP con más de 50 herramientas para que un asistente de IA consulte y opere los proyectos", "Lectura de repositorios con LibGit2Sharp y paneles de métricas con ECharts"],
+    skills: ["csharp", "minimal", "worker", "signalr", "efcore", "dapper", "mediatr", "fluentval", "openapi", "serilog", "clean", "cqrs", "ddd", "vslice", "result", "contract", "vue", "quasar", "ts", "pinia", "router", "charts", "electron", "sqlite", "meai", "llm", "mcp", "dpapi", "excel", "xunit", "nsub", "integ", "archtest", "lint"] },
+  { id: "pos", short: "POS Android", title: "Punto de venta móvil (POS)", kind: "Android", platforms: ["android"], tests: 381,
+    key: ["maui", "syncfusion", "sqlite", "offline"],
+    summary: "Punto de venta para Android que funciona sin conexión: ventas, cobro, apertura y cierre de caja, inventario y reportes, con varias monedas y tasas de cambio.",
+    points: ["Reglas de negocio (totales, redondeo, conversión de moneda, arqueo) en un núcleo sin dependencias, probado sin emulador", "Interfaz con controles Syncfusion: gráficos, listas y formularios", "Reportes de ventas e inventario valorizado exportables a PDF y Excel", "Acceso por PIN y datos locales en SQLite con EF Core"],
+    skills: ["csharp", "efcore", "clean", "mvvm", "offline", "maui", "syncfusion", "toolkit", "sqlite", "migr", "pdf", "excel", "xunit"] },
+  { id: "gym", short: "Gimnasio", title: "Sistema de gestión de gimnasio", kind: "Web + escritorio", platforms: ["web", "desktop"], tests: 0,
+    key: ["aspnet", "cqrs", "vue", "electron"],
+    summary: "Gestión de clientes, entrenadores, planes de membresía, pagos y asistencia. Calcula el estado de cada membresía y admite pagos en divisas con la tasa del día.",
+    points: ["API en Clean Architecture con CQRS (MediatR), validación en pipeline y Specification", "Autenticación con ASP.NET Identity y JWT; API documentada con Scalar", "La API corre como servicio de Windows y el frontend se empaqueta como aplicación de escritorio", "Frontend modular: componentes genéricos de tabla y formulario, calendario de asistencia"],
+    skills: ["csharp", "aspnet", "worker", "efcore", "mediatr", "fluentval", "openapi", "clean", "cqrs", "ddd", "spec", "vue", "quasar", "router", "electron", "sqlite", "jwt", "identity", "lint"] },
+  { id: "web", short: "Landing", title: "Landing page corporativa", kind: "Web", platforms: ["web"], tests: 0,
+    key: ["next", "react", "tailwind", "seo"],
+    summary: "Sitio de una agencia de software, en varios idiomas, con un recorrido animado por los servicios y un formulario de contacto conectado a un webhook.",
+    points: ["Next.js 16 con App Router y componentes de servidor", "Rutas por idioma con diccionarios propios", "SEO técnico: sitemap, robots y datos estructurados JSON-LD", "Presupuesto de tamaño de bundle medido y controlado"],
+    skills: ["react", "next", "ts", "tailwind", "i18n", "seo", "lint"] },
+  { id: "tur", short: "Reservas turísticas", title: "Plataforma de reservas turísticas en microservicios", kind: "Web · microservicios", platforms: ["web"], tests: 0,
+    key: ["micro", "rabbit", "redis", "aspire"],
+    summary: "Backend de una agencia de viajes en microservicios: catálogo de productos turísticos, reservas, clientes y pagos, detrás de un gateway y de BFFs para web, API y móvil. Convive con un sistema heredado al que se mantiene sincronizado.",
+    points: ["Microservicio de catálogos con más de 40 módulos en vertical slices: agregados, value objects, reglas de negocio y eventos de dominio", "Sincronización con el sistema heredado mediante el patrón Outbox y un worker en segundo plano", "Caché HybridCache (memoria + Redis) con invalidación tras cada escritura; mensajería entre servicios con MassTransit y RabbitMQ", "Microservicio de pagos con dos pasarelas y callbacks idempotentes; integración con un proveedor hotelero sincronizada con Hangfire"],
+    skills: ["csharp", "minimal", "versioning", "micro", "yarp", "efcore", "postgres", "oracle", "migr", "mediatr", "fluentval", "openapi", "rabbit", "outbox", "redis", "hangfire", "keycloak", "jwt", "serilog", "otel", "cqrs", "ddd", "vslice", "aspire", "docker", "cicd", "k6", "analyzers"] },
+];
+const FILTERS = [["all", "Todos"], ["web", "Web"], ["desktop", "Escritorio"], ["android", "Android"]];
+
+const $ = s => document.querySelector(s);
+const SVG = "http://www.w3.org/2000/svg";
+const projectById = new Map(PROJECTS.map(p => [p.id, p]));
+const fmt = n => n.toLocaleString("es");
+
+// Descarta lo que no tiene evidencia en ningún proyecto
+ROADMAPS.forEach(r => {
+  r.nodes = r.nodes
+    .map(n => ({ ...n, branches: n.branches
+      .map(b => ({ ...b, items: b.items.map(([t, ps]) => [t, ps.split(" ").filter(p => p === OTROS || projectById.has(p))]).filter(([, ps]) => ps.length) }))
+      .filter(b => b.items.length) }))
+    .filter(n => n.branches.length);
+});
+
+const topics = new Set(ROADMAPS.flatMap(r => r.nodes.flatMap(n => n.branches.flatMap(b => b.items.filter(([, ps]) => ps.some(p => p !== OTROS)).map(([t]) => t)))));
+const STATS = [
+  [PROJECTS.length, "proyectos completos"],
+  [topics.size, "temas verificados en el código"],
+  [PROJECTS.reduce((n, p) => n + p.tests, 0), "pruebas automatizadas"],
+];
+$("#stats").innerHTML = STATS.map(([n, l]) => `
+  <div class="grid min-w-0 gap-0.5">
+    <span class="stat-n font-display text-[clamp(1.6rem,4vw,2.2rem)] font-extrabold tabular-nums" data-n="${n}">${fmt(n)}</span>
+    <span class="text-sm leading-snug text-muted">${l}</span>
+  </div>`).join("");
+
+let current = ROADMAPS[0];
+try { current = ROADMAPS.find(r => r.id === localStorage.getItem("pf-roadmap")) || current; } catch {}
+
+function renderTabs() {
+  $("#tabs").innerHTML = ROADMAPS.map(r => {
+    const on = r === current;
+    return `<button type="button" role="tab" id="tab-${r.id}" data-tab="${r.id}" aria-selected="${on}" tabindex="${on ? 0 : -1}"
+      class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[.95rem] font-semibold transition-colors ${on ? "bg-net text-onaccent shadow-sm" : "text-muted hover:bg-net/10 hover:text-ink"}">
+      ${r.tab}<span class="font-mono text-[.7rem] ${on ? "opacity-80" : "text-net"}">${r.nodes.length}</span></button>`;
+  }).join("");
+}
+
+function renderRoadmap() {
+  $("#h-skills").textContent = current.title;
+  $("#rm").setAttribute("aria-labelledby", "tab-" + current.id);
+  $("#rm").innerHTML = `<svg class="wires" aria-hidden="true"></svg>` + current.nodes.map((n, i) => `
+    <div class="row ${i % 2 ? "l" : "r"}">
+      <button class="node" type="button" data-node="${i}" aria-expanded="false"><span>${String(i + 1).padStart(2, "0")}</span>${n.name}</button>
+      <div class="side">${n.branches.map((b, j) => `
+        <div class="bg">
+          <button class="branch" type="button" data-node="${i}" data-branch="${j}" aria-expanded="false" aria-controls="t-${i}-${j}">${b.name}<b>${b.items.length}</b></button>
+          <ul class="topics" id="t-${i}-${j}" hidden>${b.items.map(([t, ps], k) => `
+            <li><button class="topic" type="button" aria-expanded="false" aria-controls="g-${i}-${j}-${k}">${t.replace(/</g, "&lt;")}</button>
+              <span class="tags" id="g-${i}-${j}-${k}" hidden>${ps.map(p => p === OTROS ? `<span>Otros proyectos</span>` : `<button type="button" data-go="${p}">${projectById.get(p).short}</button>`).join("")}</span></li>`).join("")}
+          </ul>
+        </div>`).join("")}</div>
+    </div>`).join("");
+  drawWires();
+}
+
+// Línea continua entre nodos y líneas punteadas del nodo a cada rama
+function drawWires() {
+  const rm = $("#rm"), svg = rm.querySelector(".wires");
+  if (!svg) return;
+  svg.replaceChildren();
+  if (matchMedia("(max-width: 760px)").matches) return;
+  const o = rm.getBoundingClientRect();
+  const path = (cls, d) => { const p = document.createElementNS(SVG, "path"); p.setAttribute("class", cls); p.setAttribute("d", d); svg.append(p); };
+  const nodes = [...rm.querySelectorAll(".node")].map(el => el.getBoundingClientRect());
+  nodes.forEach((n, i) => {
+    const cx = n.left + n.width / 2 - o.left, cy = n.top + n.height / 2 - o.top;
+    const next = nodes[i + 1];
+    if (next) {
+      const x1 = cx, y1 = n.bottom - o.top, x2 = next.left + next.width / 2 - o.left, y2 = next.top - o.top, k = (y2 - y1) / 2;
+      path("sp", `M${x1} ${y1} C${x1} ${y1 + k} ${x2} ${y2 - k} ${x2} ${y2}`);
+    }
+    const right = rm.children[i + 1].classList.contains("r");
+    rm.children[i + 1].querySelectorAll(".branch").forEach(el => {
+      const b = el.getBoundingClientRect();
+      const x1 = (right ? n.right : n.left) - o.left, x2 = (right ? b.left : b.right) - o.left;
+      const y2 = b.top + b.height / 2 - o.top, mx = (x1 + x2) / 2;
+      path("br", `M${x1} ${cy} C${mx} ${cy} ${mx} ${y2} ${x2} ${y2}`);
+    });
+  });
+}
+
+// Animaciones (anime.js). Todas terminan en el estado de reposo y limpian el transform para no pisar el CSS.
+const clearTransform = a => a.animatables.forEach(x => { x.target.style.transform = ""; });
+
+function animateRoadmap() {
+  if (!MOTION) return;
+  const narrow = matchMedia("(max-width: 760px)").matches;
+  anime({ targets: "#rm .node", opacity: [0, 1], scale: [.85, 1], duration: 520, delay: anime.stagger(55), easing: "easeOutBack", complete: clearTransform });
+  anime({ targets: "#rm .side", opacity: [0, 1], translateX: el => narrow ? [0, 0] : [el.parentElement.classList.contains("r") ? -14 : 14, 0], duration: 480, delay: anime.stagger(55, { start: 140 }), easing: "easeOutCubic", complete: clearTransform });
+  anime({ targets: "#rm .wires .sp", strokeDashoffset: [anime.setDashoffset, 0], duration: 700, delay: anime.stagger(55, { start: 100 }), easing: "easeInOutSine" });
+  anime({ targets: "#rm .wires .br", opacity: [0, .6], duration: 500, delay: anime.stagger(12, { start: 300 }), easing: "linear" });
+}
+
+function revealTopics() {
+  if (!MOTION) return;
+  anime({ targets: "#rm .topics:not([hidden]) > li", opacity: [0, 1], translateY: [-6, 0], duration: 320, delay: anime.stagger(28), easing: "easeOutQuad", complete: clearTransform });
+}
+
+function countUp() {
+  document.querySelectorAll(".stat-n").forEach((el, i) => {
+    const o = { n: 0 }, end = +el.dataset.n;
+    anime({ targets: o, n: end, round: 1, duration: 1400, delay: 500 + i * 120, easing: "easeOutExpo", update: () => { el.textContent = fmt(o.n); } });
+  });
+}
+
+function intro() {
+  if (!MOTION) return;
+  anime.timeline({ easing: "easeOutCubic" })
+    .add({ targets: ".hero-in", opacity: [0, 1], translateY: [18, 0], duration: 650, delay: anime.stagger(90), complete: clearTransform })
+    .add({ targets: ".cl", opacity: [0, 1], translateX: [-10, 0], duration: 360, delay: anime.stagger(60), complete: clearTransform }, "-=500");
+  countUp();
+}
+
+// Despliegue en tres niveles: nodo → ramas → temas → proyectos. Solo un grupo abierto a la vez.
+const toggle = (btn, on) => { btn.setAttribute("aria-expanded", on); $("#" + btn.getAttribute("aria-controls")).hidden = !on; };
+const openBranches = () => [...$("#rm").querySelectorAll(".branch[aria-expanded=true]")];
+
+function setBranch(btn, on) {
+  toggle(btn, on);
+  const topics = $("#" + btn.getAttribute("aria-controls")).querySelectorAll(".topic");
+  // Una rama con un solo tema muestra directamente sus proyectos
+  topics.forEach(t => toggle(t, on && topics.length === 1));
+}
+
+function collapseAll() {
+  openBranches().forEach(b => setBranch(b, false));
+  $("#rm").querySelectorAll(".node[aria-expanded=true]").forEach(n => n.setAttribute("aria-expanded", false));
+}
+
+function clickNode(btn) {
+  const branches = [...btn.parentElement.querySelectorAll(".branch")];
+  const wasOpen = btn.getAttribute("aria-expanded") === "true";
+  collapseAll();
+  if (!wasOpen) { branches.forEach(b => setBranch(b, true)); btn.setAttribute("aria-expanded", true); revealTopics(); }
+  drawWires();
+}
+
+function clickBranch(btn) {
+  const open = openBranches();
+  const onlyThis = open.length === 1 && open[0] === btn;
+  collapseAll();
+  if (!onlyThis) { setBranch(btn, true); revealTopics(); }
+  drawWires();
+}
+
+function selectTab(id) {
+  current = ROADMAPS.find(r => r.id === id);
+  try { localStorage.setItem("pf-roadmap", id); } catch {}
+  renderTabs();
+  renderRoadmap();
+  animateRoadmap();
+  $("#tab-" + id).focus();
+}
+
+// Proyectos: tarjeta compacta (tipo, título, resumen corto, 4 tecnologías) y detalle completo en un diálogo
+const chip = s => `<span class="rounded-md border border-line px-2 py-0.5 font-mono text-[.72rem] text-muted">${LABEL[s]}</span>`;
+const meta = p => `<span class="text-vue">${p.kind}</span>${p.tests ? `<span class="text-muted">${fmt(p.tests)} pruebas</span>` : ""}`;
+let filter = "all";
+
+function renderFilters() {
+  $("#filters").innerHTML = FILTERS.map(([id, name]) => {
+    const n = id === "all" ? PROJECTS.length : PROJECTS.filter(p => p.platforms.includes(id)).length;
+    const on = id === filter;
+    return `<button type="button" data-filter="${id}" aria-pressed="${on}"
+      class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors ${on ? "border-net bg-net text-onaccent" : "border-line bg-surface text-ink hover:border-net"}">
+      ${name}<span class="font-mono text-[.7rem] ${on ? "opacity-80" : "text-net"}">${n}</span></button>`;
+  }).join("");
+}
+
+$("#projects").innerHTML = PROJECTS.map(p => `
+  <article class="pcard group relative flex flex-col gap-4 rounded-2xl border border-line bg-surface p-6 transition duration-300 hover:-translate-y-1 hover:border-net/60 hover:shadow-[0_24px_48px_-28px_rgb(var(--net)/.6)]" data-id="${p.id}">
+    <div class="flex items-center justify-between gap-3 font-mono text-[.7rem] uppercase tracking-[.08em]">${meta(p)}</div>
+    <h3 class="text-xl font-bold">${p.title}</h3>
+    <p class="line-clamp-3 text-[.98rem] text-muted">${p.summary}</p>
+    <div class="flex flex-wrap gap-1.5">${p.key.map(chip).join("")}<span class="px-1 py-0.5 font-mono text-[.72rem] text-net">+${p.skills.length - p.key.length}</span></div>
+    <button type="button" data-open="${p.id}" class="mt-auto inline-flex items-center gap-1.5 self-start pt-2 text-sm font-semibold text-net after:absolute after:inset-0 after:rounded-2xl after:content-['']">
+      Ver detalle <span class="transition-transform group-hover:translate-x-1" aria-hidden="true">→</span></button>
+  </article>`).join("");
+
+function applyFilter() {
+  renderFilters();
+  const cards = [...document.querySelectorAll(".pcard")];
+  cards.forEach(c => { c.hidden = filter !== "all" && !projectById.get(c.dataset.id).platforms.includes(filter); });
+  if (MOTION) anime({ targets: cards.filter(c => !c.hidden), opacity: [0, 1], translateY: [14, 0], duration: 420, delay: anime.stagger(60), easing: "easeOutCubic", complete: clearTransform });
+}
+
+const dlg = $("#pdlg");
+let opener = null;
+function openProject(id) {
+  const p = projectById.get(id);
+  $("#pd-body").innerHTML = `
+    <header class="flex items-start justify-between gap-4">
+      <div class="grid min-w-0 gap-2">
+        <div class="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[.7rem] uppercase tracking-[.08em]">${meta(p)}</div>
+        <h3 id="pd-title" class="text-2xl font-bold sm:text-[1.7rem]">${p.title}</h3>
+      </div>
+      <button type="button" data-close class="-mr-2 -mt-1 grid h-9 w-9 flex-none place-items-center rounded-lg text-muted hover:bg-net/10 hover:text-ink" aria-label="Cerrar">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </header>
+    <p class="text-muted">${p.summary}</p>
+    <div class="grid gap-3">
+      <h4 class="font-mono text-xs font-semibold uppercase tracking-[.14em] text-muted">Lo más destacado</h4>
+      <ul class="grid gap-2.5">${p.points.map(x => `<li class="pd-in flex gap-3"><span class="mt-[.6em] h-1.5 w-1.5 flex-none rounded-full bg-vue"></span><span>${x}</span></li>`).join("")}</ul>
+    </div>
+    <div class="grid gap-3 border-t border-line pt-5">
+      <h4 class="font-mono text-xs font-semibold uppercase tracking-[.14em] text-muted">Pila completa · ${p.skills.length}</h4>
+      <div class="flex flex-wrap gap-1.5">${p.skills.map(chip).join("")}</div>
+    </div>`;
+  opener = document.activeElement;
+  dlg.showModal();
+  if (MOTION) {
+    anime({ targets: dlg, opacity: [0, 1], scale: [.96, 1], duration: 280, easing: "easeOutCubic", complete: clearTransform });
+    anime({ targets: "#pd-body .pd-in", opacity: [0, 1], translateX: [-8, 0], duration: 320, delay: anime.stagger(50, { start: 120 }), easing: "easeOutQuad", complete: clearTransform });
+  }
+}
+dlg.addEventListener("click", e => { if (e.target === dlg || e.target.closest("[data-close]")) dlg.close(); });
+dlg.addEventListener("close", () => opener?.focus?.());
+
+document.addEventListener("click", e => {
+  const tab = e.target.closest("[data-tab]");
+  if (tab) return selectTab(tab.dataset.tab);
+  const nb = e.target.closest("[data-node]");
+  if (nb) return nb.classList.contains("branch") ? clickBranch(nb) : clickNode(nb);
+  const tp = e.target.closest(".topic");
+  if (tp) { toggle(tp, tp.getAttribute("aria-expanded") !== "true"); return drawWires(); }
+  const go = e.target.closest("[data-go]") || e.target.closest("[data-open]");
+  if (go) return openProject(go.dataset.go || go.dataset.open);
+  const f = e.target.closest("[data-filter]");
+  if (f && f.dataset.filter !== filter) { filter = f.dataset.filter; applyFilter(); }
+});
+document.addEventListener("keydown", e => {
+  if (dlg.open) return;
+  if (e.key === "Escape" && openBranches().length) {
+    const back = e.target.closest?.(".row")?.querySelector(".node");
+    collapseAll(); drawWires();
+    return back?.focus();
+  }
+  const tab = e.target.closest?.("[role=tab]");
+  if (tab && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+    const i = ROADMAPS.findIndex(r => r.id === tab.dataset.tab);
+    const next = ROADMAPS[(i + (e.key === "ArrowRight" ? 1 : ROADMAPS.length - 1)) % ROADMAPS.length];
+    selectTab(next.id);
+  }
+});
+
+new ResizeObserver(drawWires).observe($("#rm"));
+document.fonts?.ready.then(drawWires);
+renderTabs();
+renderRoadmap();
+renderFilters();
+intro();
+animateRoadmap();
+
+$("#copy").addEventListener("click", async () => {
+  const status = $("#copy-status");
+  try { await navigator.clipboard.writeText($("#mail").textContent.trim()); status.textContent = "Correo copiado"; }
+  catch {
+    const r = document.createRange(); r.selectNodeContents($("#mail"));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    status.textContent = "Correo seleccionado: pulsa Ctrl+C para copiarlo";
+  }
+});
+</script>
