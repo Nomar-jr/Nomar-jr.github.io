@@ -127,15 +127,23 @@ h1, h2, h3, h4 { font-family: var(--font-display); text-wrap: balance; line-heig
 .pdlg { width: min(42rem, calc(100% - 32px)); max-height: min(88vh, 52rem); padding: 0; border: 1px solid rgb(var(--line)); border-radius: 16px; background: rgb(var(--surface)); color: rgb(var(--ink)); box-shadow: 0 40px 80px -30px rgb(0 0 0 / .45); }
 .pdlg::backdrop { background: rgb(var(--ink) / .45); backdrop-filter: blur(3px); }
 
-/* En pantallas estrechas el zigzag no cabe: lista vertical con las ramas debajo de cada nodo */
+.rail { display: none; }
+
+/* En pantallas estrechas el zigzag no cabe: línea de metro vertical con una estación por nodo y las ramas como chips debajo */
 @media (max-width: 760px) {
-  .rm { gap: 1.25rem; }
+  .rm { gap: 1.5rem; --st: 1.25rem; }
   .rm .wires { display: none; }
-  .row { grid-template-columns: minmax(0, 1fr); row-gap: .6rem; }
-  .row .node, .row.r .node, .row.l .node { grid-column: 1; justify-self: start; translate: none; }
-  .row .side, .row.r .side, .row.l .side { grid-column: 1; grid-row: 2; align-items: flex-start; margin-left: 1rem; padding-left: 1rem; border-left: 2px dashed rgb(var(--line)); }
-  .row.l .bg { align-items: flex-start; }
-  .row.l .topics { margin: 0 0 .35rem .9rem; padding: .1rem 0 .1rem .9rem; border-right: 0; border-left: 2px dashed rgb(var(--line)); justify-items: start; text-align: left; }
+  .row { grid-template-columns: minmax(0, 1fr); row-gap: .7rem; padding-left: 2.4rem; }
+  .rail { display: block; position: absolute; left: .75rem; top: var(--st); bottom: calc(-1.5rem - var(--st)); width: 3px; border-radius: 3px; background: linear-gradient(rgb(var(--node)), rgb(var(--node) / .55)); transform-origin: top; }
+  .row:last-child .rail { display: none; }
+  .row::before { content: ""; position: absolute; z-index: 2; left: calc(.75rem + 1.5px - .55rem); top: calc(var(--st) - .55rem); width: 1.1rem; height: 1.1rem; border-radius: 50%; background: rgb(var(--surface)); border: 3px solid rgb(var(--node)); box-shadow: 0 0 0 4px rgb(var(--node) / .15); transition: background-color .2s, box-shadow .2s; }
+  .row::after { content: ""; position: absolute; left: 1.3rem; top: calc(var(--st) - 1.5px); width: 1.1rem; height: 3px; background: rgb(var(--node)); }
+  .row:has(.node[aria-expanded="true"])::before { background: rgb(var(--node)); box-shadow: 0 0 0 6px rgb(var(--node) / .25); }
+  .row .node, .row.r .node, .row.l .node { grid-column: 1; justify-self: start; translate: none; display: flex; align-items: center; gap: .55rem; min-width: 0; min-height: calc(var(--st) * 2); padding: .45rem .9rem; font-size: 1rem; text-align: left; overflow-wrap: anywhere; }
+  .row .side, .row.r .side, .row.l .side { grid-column: 1; grid-row: 2; flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: .4rem; }
+  .bg { display: contents; }
+  .branch { font-size: .85rem; padding: .3rem .65rem; border-radius: 999px; }
+  .row .topics, .row.r .topics, .row.l .topics { flex-basis: 100%; max-width: none; margin: .1rem 0 .3rem .4rem; padding: .1rem 0 .1rem .8rem; border-right: 0; border-left: 2px dashed rgb(var(--net) / .35); justify-items: start; text-align: left; }
   .row.l .topics li { justify-items: start; }
   .row.l .topics .tags { justify-content: flex-start; }
 }
@@ -464,6 +472,7 @@ function renderRoadmap() {
   $("#rm").setAttribute("aria-labelledby", "tab-" + current.id);
   $("#rm").innerHTML = `<svg class="wires" aria-hidden="true"></svg>` + current.nodes.map((n, i) => `
     <div class="row ${i % 2 ? "l" : "r"}">
+      <i class="rail" aria-hidden="true"></i>
       <button class="node" type="button" data-node="${i}" aria-expanded="false"><span>${String(i + 1).padStart(2, "0")}</span>${n.name}</button>
       <div class="side">${n.branches.map((b, j) => `
         <div class="bg">
@@ -506,9 +515,31 @@ function drawWires() {
 // Animaciones (anime.js). Todas terminan en el estado de reposo y limpian el transform para no pisar el CSS.
 const clearTransform = a => a.animatables.forEach(x => { x.target.style.transform = ""; });
 
+// En móvil cada tramo de la línea de metro se dibuja cuando su estación entra en pantalla
+let railObserver;
+function animateRails() {
+  railObserver?.disconnect();
+  if (!MOTION || !window.IntersectionObserver || !matchMedia("(max-width: 760px)").matches) return;
+  const rows = [...$("#rm").querySelectorAll(".row")];
+  rows.forEach(r => { r.querySelector(".rail").style.transform = "scaleY(0)"; r.querySelector(".side").style.opacity = 0; });
+  railObserver = new IntersectionObserver(entries => entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    railObserver.unobserve(e.target);
+    anime({ targets: e.target.querySelector(".rail"), scaleY: [0, 1], duration: 650, delay: 150, easing: "easeInOutSine", complete: clearTransform });
+    anime({ targets: e.target.querySelector(".side"), opacity: [0, 1], duration: 350, easing: "linear" });
+    anime({ targets: e.target.querySelectorAll(".branch"), opacity: [0, 1], translateY: [8, 0], duration: 380, delay: anime.stagger(40), easing: "easeOutCubic", complete: clearTransform });
+  }), { rootMargin: "0px 0px -15% 0px" });
+  rows.forEach(r => railObserver.observe(r));
+}
+
 function animateRoadmap() {
   if (!MOTION) return;
   const narrow = matchMedia("(max-width: 760px)").matches;
+  if (narrow) {
+    anime({ targets: "#rm .node", opacity: [0, 1], translateX: [-10, 0], duration: 420, delay: anime.stagger(40), easing: "easeOutCubic", complete: clearTransform });
+    animateRails();
+    return;
+  }
   anime({ targets: "#rm .node", opacity: [0, 1], scale: [.85, 1], duration: 520, delay: anime.stagger(55), easing: "easeOutBack", complete: clearTransform });
   anime({ targets: "#rm .side", opacity: [0, 1], translateX: el => narrow ? [0, 0] : [el.parentElement.classList.contains("r") ? -14 : 14, 0], duration: 480, delay: anime.stagger(55, { start: 140 }), easing: "easeOutCubic", complete: clearTransform });
   anime({ targets: "#rm .wires .sp", strokeDashoffset: [anime.setDashoffset, 0], duration: 700, delay: anime.stagger(55, { start: 100 }), easing: "easeInOutSine" });
